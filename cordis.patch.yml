@@ -1,0 +1,15 @@
+# dsh-auto-title 的 Harness 挂载补丁 / the bundle patch for dsh-auto-title.
+#
+# 第一步：让位。Harness 的 sessionTitle 服务只接受一个 provider，内置的
+# first-prompt 生成器必须先停用，否则本插件注册时会被拒绝
+# （session-title provider "..." is already registered）。
+# Step 1: step aside. The sessionTitle service accepts a single provider, so the
+# shipped first-prompt generator has to be disabled first.
+- id: session-title-llm
+  disabled: true
+
+# 第二步：挂载本插件。
+# Step 2: mount this plugin.
+- insert:
+    - id: auto-title
+      name: dsh-auto-title

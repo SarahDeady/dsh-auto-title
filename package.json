@@ -1,0 +1,61 @@
+{
+  "name": "dsh-auto-title",
+  "version": "1.0.0",
+  "private": false,
+  "description": "自动会话标题：把会话上下文提炼成不超过 12 个汉字宽的一行标题；用户亲手改名后自动暂停，侧栏会话菜单里可一键强制重新提炼。Auto Session Title for DeepSeek Harness: distills each session into a one-line title of at most 12 characters, pauses after a manual rename, and re-distills on demand.",
+  "type": "module",
+  "license": "MIT",
+  "author": "SarahDeady",
+  "keywords": [
+    "dsh",
+    "deepseek",
+    "deepseek-harness",
+    "dsh-plugin",
+    "session-title",
+    "auto-title",
+    "cordis",
+    "plugin"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./package.json": "./package.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "test/"
+  ],
+  "scripts": {
+    "test": "node test/smoke.mjs",
+    "check": "node --check index.js && node --check client.js && node --check test/smoke.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SarahDeady/dsh-auto-title.git"
+  },
+  "homepage": "https://github.com/SarahDeady/dsh-auto-title#readme",
+  "bugs": {
+    "url": "https://github.com/SarahDeady/dsh-auto-title/issues"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-conversation"
+      ]
+    }
+  }
+}

@@ -1,0 +1,21 @@
+# 依赖与构建产物 / dependencies and build output
+node_modules/
+pnpm-lock.yaml
+
+# 日志与临时文件 / logs and temp files
+*.log
+npm-debug.log*
+pnpm-debug.log*
+.tmp/
+temp/
+
+# 编辑器与系统 / editors and OS noise
+.DS_Store
+Thumbs.db
+Desktop.ini
+.vscode/
+.idea/
+
+# 本地环境 / local environment
+.env
+.env.*

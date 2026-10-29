@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Auto Session Title">
+  <defs>
+    <linearGradient id="auto-title-card" x1="6" y1="4" x2="58" y2="60" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#3f7dff"/>
+      <stop offset="1" stop-color="#7a4dff"/>
+    </linearGradient>
+  </defs>
+  <rect x="3" y="3" width="58" height="58" rx="16" fill="url(#auto-title-card)"/>
+  <rect x="13" y="24" width="25" height="5" rx="2.5" fill="#ffffff" opacity="0.94"/>
+  <rect x="13" y="35" width="16" height="5" rx="2.5" fill="#ffffff" opacity="0.55"/>
+  <path d="M45 14.5l1.85 4.65L51.5 21l-4.65 1.85L45 27.5l-1.85-4.65L38.5 21l4.65-1.85z" fill="#ffffff" opacity="0.96"/>
+</svg>

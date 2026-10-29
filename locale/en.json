@@ -1,0 +1,11 @@
+{
+  "meta": {
+    "title": "Auto Session Title",
+    "description": "Distills each session into a one-line title of at most 12 characters. Once you rename a session yourself it stops changing the title; click \"Refresh title\" in the session menu to force a fresh one."
+  },
+  "menu": {
+    "refresh": "Refresh title",
+    "busy": "Refining title…",
+    "failed": "Refresh failed — click to retry"
+  }
+}
