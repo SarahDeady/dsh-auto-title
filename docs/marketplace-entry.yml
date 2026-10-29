@@ -1,0 +1,21 @@
+# 提交到插件市场清单（awesome-dsh-plugin）用的条目文件。
+# 目标路径：data/plugins/SarahDeady__dsh-auto-title.yml
+# 提交方式：向 https://github.com/awesome-dsh-plugin/awesome-dsh-plugin 提 PR，只加这一个文件。
+#
+# 收录要求（本仓库现状）：
+#   package.json 声明 dsh.bundle            ✓
+#   根目录有 cordis.patch.yml               ✓
+#   真实可用的代码                          ✓
+#   仓库带 dsh-plugin topic                 ✓
+#   仓库创建满 1 天                         ⏳（2026-10-29T11:21:56Z 创建，2026-10-30T11:21Z 之后可提）
+#
+# 可选：把自己的位图图标放到 GitHub（如 assets/icon-180.png，180×180 PNG），
+# 再加一行 icon: https://raw.githubusercontent.com/SarahDeady/dsh-auto-title/main/assets/icon-180.png
+# 不写则市场卡片回退成作者头像。
+
+url: https://github.com/SarahDeady/dsh-auto-title
+name: SarahDeady/dsh-auto-title
+category: session
+description:
+  en: Summarizes the conversation into a session title of at most 12 CJK characters, keeps it updated as the chat grows, stops after the user renames the session, and adds a refresh row to the session menu.
+  zh: 把对话总结成最多 12 个字的会话标题，随对话推进自动更新；用户手动改名后自动停手；侧栏会话「⋯」菜单里可一键重新提炼。
