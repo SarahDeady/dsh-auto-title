@@ -5,6 +5,13 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-10-29
+
+### 修复 / Fixed
+
+- **冷启动后「刷新标题」失效**：插件加载时 `webServer` 服务还没就绪，路由因此从未注册，菜单行点了永远是「刷新失败」。现在等 `webServer` 注入完成后再挂路由，两条路径都能生效。
+- 刷新端点改用 `GET`：Harness Web 的鉴权层会把未认证的 `POST` 直接回 405（连路由都进不去），`GET` 可以正常到达插件路由。
+
 ## [1.0.0] - 2026-10-29
 
 ### 新增 / Added

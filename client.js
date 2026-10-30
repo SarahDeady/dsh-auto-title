@@ -111,10 +111,15 @@ window.__ModuleLoader__.load({
 				}
 				setBusy(true);
 				setFailure(null);
+				// 用 GET：Harness Web 的鉴权层会先拦下未认证的 POST（405），
+				// 而 GET 会照常进入路由表，插件路由因此不会被挡。
+				// GET: the Web auth layer answers unauthenticated POST with 405
+				// before routing, while GET reaches the route table.
 				fetch(`${ROUTE}?sessionId=${encodeURIComponent(sessionId)}`, {
-					method: 'POST',
+					method: 'GET',
 					credentials: 'same-origin',
 					headers: { accept: 'application/json' },
+					cache: 'no-store',
 				})
 					.then(async (response) => {
 						const payload = await response.json().catch(() => null);

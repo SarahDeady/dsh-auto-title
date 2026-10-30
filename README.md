@@ -74,7 +74,7 @@ Harness 的 `sessionTitle` 服务**只接受一个**标题 provider。本插件�
 - **注册座位**：`ctx.sessionTitle.register({ id: 'auto-title', automatic: 'all-prompts', generate })`。
 - **只走注入的服务**：Host 半不 import 任何 Harness 包，因此跨 Harness 版本升级不易碎。
 - **手动改名即暂停**：侧栏改名走的是服务自己的 `rename()`，它追加 `source: user` 的标题事件并锁定；此后服务不再为用户消息调度自动生成——插件什么都不用做。
-- **刷新按钮**：客户端 `POST /auto-title/refresh?sessionId=…` → Host 调 `ctx.sessionTitle.refresh(session)`，绕过上面的锁定/节流强制重算；新的标题照样通过 projection 回到 UI。
+- **刷新按钮**：客户端 `GET /auto-title/refresh?sessionId=…` → Host 调 `ctx.sessionTitle.refresh(session)`，绕过上面的锁定/节流强制重算；新的标题照样通过 projection 回到 UI。用 GET 是有意为之：Harness Web 的鉴权层会把未认证的 `POST` 直接回 405，`GET` 则照常进入路由表。路由会在 `webServer` 服务就绪后再挂（冷启动时它可能还没出现）。
 
 ## 调参
 

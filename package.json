@@ -1,6 +1,6 @@
 {
   "name": "dsh-auto-title",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": false,
   "description": "自动会话标题：把会话上下文提炼成不超过 12 个汉字宽的一行标题；用户亲手改名后自动暂停，侧栏会话菜单里可一键强制重新提炼。Auto Session Title for DeepSeek Harness: distills each session into a one-line title of at most 12 characters, pauses after a manual rename, and re-distills on demand.",
   "type": "module",

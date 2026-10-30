@@ -276,23 +276,50 @@ async function handleRefresh(ctx, state, request, response) {
   }
 }
 
-function registerRefreshRoute(ctx, state) {
-  const webServer = typeof ctx.get === 'function' ? ctx.get('webServer') : undefined
+/**
+ * 把路由挂到当前 unit 上；服务还不在就返回 false。
+ * Mount the route on `unit`; returns false while the service is not there yet.
+ * @param unit 拥有 `webServer` 服务的上下文 / context owning `webServer`.
+ * @param state 插件内部状态 / plugin-local state.
+ */
+function mountRefreshRoute(unit, state) {
+  const webServer = typeof unit.get === 'function' ? unit.get('webServer') : undefined
   if (webServer === undefined || webServer === null || typeof webServer.register !== 'function') {
-    ctx.logger?.warn?.('auto-title: no webServer service in this composition; the refresh row stays inert')
-    return
+    return false
   }
-  ctx.effect(
+  unit.effect(
     () =>
       webServer.register({
         kind: 'exact',
         path: ROUTE,
         handler: (request, response) => {
-          void handleRefresh(ctx, state, request, response)
+          void handleRefresh(unit, state, request, response)
         },
       }),
     'auto-title: refresh route',
   )
+  return true
+}
+
+function registerRefreshRoute(ctx, state) {
+  if (mountRefreshRoute(ctx, state)) return
+  // 冷启动时 webServer 可能还没就绪：等它注入完成再挂，插件其余部分照常工作。
+  // At cold start webServer may not exist yet: wait for injection, keep the rest live.
+  if (typeof ctx.inject !== 'function') {
+    ctx.logger?.warn?.('auto-title: no webServer service and no inject(); the refresh row stays inert')
+    return
+  }
+  try {
+    ctx.inject(['webServer'], (unit) => {
+      if (!mountRefreshRoute(unit, state)) {
+        unit.logger?.warn?.('auto-title: webServer has no register(); the refresh row stays inert')
+      }
+    })
+  } catch (error) {
+    ctx.logger?.warn?.(
+      `auto-title: could not wait for webServer: ${String(error?.message ?? error)}`,
+    )
+  }
 }
 
 export function apply(ctx) {
