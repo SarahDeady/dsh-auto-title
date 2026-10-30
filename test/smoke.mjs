@@ -59,7 +59,8 @@ function makeCtx() {
 
   const ctx = {
     logger: { warn: () => {} },
-    get: (key) => (key === 'webServer' ? webServer : undefined),
+    get: (key) =>
+      key === 'webServer' ? webServer : key === 'sessionPersistence' ? persistence : undefined,
     effect(fn, label) {
       const dispose = fn()
       effects.push({ label, dispose })
@@ -106,6 +107,34 @@ function makeCtx() {
     },
   }
 
+  // 假持久化：只有登记过的 id 才有日志，模拟「没打开的会话」。
+  const logs = new Map()
+
+  const persistence = {
+    async open(id, access) {
+      const events = logs.get(id)
+      if (events === undefined) {
+        const error = new Error(`session "${id}" is not in the persistence store`)
+        error.name = 'SessionPersistenceNotFoundError'
+        throw error
+      }
+      return {
+        id,
+        header: {},
+        inheritedEventCount: 0,
+        access,
+        async read() {
+          return { eventState: 'detached', events: events.map((event) => ({ ...event })) }
+        },
+        async append(next) {
+          for (const event of next) events.push(event)
+        },
+        async flush() {},
+        async close() {},
+      }
+    },
+  }
+
   return {
     ctx,
     effects,
@@ -114,6 +143,7 @@ function makeCtx() {
     llmCalls,
     sessions,
     refreshes,
+    logs,
     /** 下一次 `llm.stream` 吐出的块 / chunks the next stream yields. */
     setStream(chunks) {
       nextStream = chunks
@@ -338,11 +368,41 @@ await check('refresh route: 400 without a sessionId', async () => {
   assert.deepEqual(payload, { ok: false, error: 'missing sessionId' })
 })
 
-await check('refresh route: 404 for a session that is not live', async () => {
+await check('refresh route: 404 for a session with no log on disk', async () => {
   const { status, payload } = await postRefresh('/auto-title/refresh?sessionId=nope')
   assert.equal(status, 404)
   assert.equal(payload.ok, false)
-  assert.match(payload.error, /not live/u)
+  assert.match(payload.error, /not in the persistence store/u)
+})
+
+await check('refresh route: 200 for a session nobody opened, via its log', async () => {
+  app.logs.set('s-cold', [
+    {
+      type: 'user/message',
+      seq: 0,
+      time: 1,
+      data: { role: 'user', content: [{ type: 'text', text: '冷会话里的第一条用户消息' }], source: { kind: 'user' } },
+    },
+    {
+      type: 'user/message',
+      seq: 1,
+      time: 2,
+      data: { role: 'user', content: [{ type: 'text', text: '还没打开过这个会话' }], source: { kind: 'user' } },
+    },
+    { type: 'request/header', seq: 2, time: 3, data: { header: { config: { provider: 'p', model: 'm' } } } },
+  ])
+  app.setStream([textDelta('冷会话也能刷新标题'), finish()])
+  const { status, payload } = await postRefresh('/auto-title/refresh?sessionId=s-cold')
+  assert.equal(status, 200)
+  assert.equal(payload.ok, true)
+  assert.equal(payload.title, '冷会话也能刷新标题')
+  const events = app.logs.get('s-cold')
+  const titleEvent = events[events.length - 1]
+  assert.equal(titleEvent.type, 'session/title')
+  assert.equal(titleEvent.data.title, '冷会话也能刷新标题')
+  assert.deepEqual(titleEvent.data.messageSeqs, [0, 1])
+  assert.equal(titleEvent.data.source.provider, 'auto-title')
+  assert.equal(titleEvent.seq, 3, '追加的事件必须接在日志尾部之后')
 })
 
 await check('refresh route: 200 and a fresh title for a live session', async () => {

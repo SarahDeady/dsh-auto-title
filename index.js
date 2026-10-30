@@ -190,6 +190,14 @@ async function generateTitle(ctx, state, request) {
   }
 
   state.lastRunAt.set(sessionId, now)
+  return callModel(ctx, { sessionId: session.id, picked, route, signal: request.signal })
+}
+
+/**
+ * 调模型把挑好的消息提炼成一行标题。
+ * Turn the picked messages into one title through the model.
+ */
+async function callModel(ctx, { sessionId, picked, route, signal }) {
   const payload = JSON.stringify(picked.items)
   let output = ''
   let finish
@@ -204,9 +212,9 @@ async function generateTitle(ctx, state, request) {
     ],
     system: SYSTEM,
     maxTokens: DEFAULTS.maxOutputTokens,
-    sessionId: session.id,
+    sessionId,
     purpose: 'session-title',
-    signal: request.signal,
+    signal,
   })
   for await (const chunk of stream) {
     if (chunk?.type === 'text-delta') output += chunk.text ?? ''
@@ -222,6 +230,97 @@ async function generateTitle(ctx, state, request) {
     messageSeqs: picked.seqs,
     model: { provider: route.provider, model: route.model },
   }
+}
+
+/**
+ * 从会话日志的原始事件里取出用户消息文本。
+ * User text carried by raw session-log events.
+ */
+function userMessagesFromEvents(events) {
+  const out = []
+  for (const event of Array.isArray(events) ? events : []) {
+    if (event?.type !== 'user/message') continue
+    const data = event.data
+    const source = data?.source
+    if (source !== undefined && source !== null && source.kind !== 'user') continue
+    const blocks = Array.isArray(data?.content) ? data.content : []
+    const text = blocks
+      .filter((block) => block?.type === 'text')
+      .map((block) => String(block.text ?? ''))
+      .join(' ')
+    if (text.trim() === '') continue
+    out.push({ seq: event.seq, text })
+  }
+  return out
+}
+
+/** 日志里最后一次请求记录的模型路由 / The model route of the last recorded request. */
+function routeFromEvents(events) {
+  for (let index = (Array.isArray(events) ? events.length : 0) - 1; index >= 0; index -= 1) {
+    const event = events[index]
+    if (event?.type !== 'request/header') continue
+    const config = event.data?.header?.config
+    if (
+      typeof config?.provider === 'string' &&
+      typeof config?.model === 'string' &&
+      config.provider !== '' &&
+      config.model !== ''
+    ) {
+      return config
+    }
+  }
+  return undefined
+}
+
+/**
+ * 给「没打开」的会话提炼标题：直接读写它的持久化日志，不把它载入内存。
+ * Retitle a session that is not live by reading and appending its durable log,
+ * without restoring it into the live store.
+ */
+async function refreshColdSession(ctx, state, sessionId) {
+  const persistence = typeof ctx.get === 'function' ? ctx.get('sessionPersistence') : undefined
+  if (persistence === undefined || persistence === null || typeof persistence.open !== 'function') {
+    throw new Error('no sessionPersistence service in this composition')
+  }
+  const reader = await persistence.open(sessionId, 'read')
+  let events = []
+  try {
+    const result = await reader.read()
+    events = Array.isArray(result?.events) ? result.events : []
+  } finally {
+    await reader.close()
+  }
+  const picked = pickMessages(userMessagesFromEvents(events))
+  if (picked.seqs.length === 0) throw new Error('this session has no user message to summarize yet')
+  const route = routeFromEvents(events)
+  if (route === undefined) {
+    throw new Error('this session has no recorded model route; open it once and retry')
+  }
+  const computed = await callModel(ctx, { sessionId, picked, route, signal: undefined })
+  const writer = await persistence.open(sessionId, 'write')
+  try {
+    const result = await writer.read()
+    const tail = Array.isArray(result?.events) ? result.events : []
+    const last = tail.length > 0 ? tail[tail.length - 1] : undefined
+    const seq = (typeof last?.seq === 'number' ? last.seq : -1) + 1
+    await writer.append([
+      {
+        type: 'session/title',
+        seq,
+        time: Date.now(),
+        data: {
+          title: computed.title,
+          messageSeqs: computed.messageSeqs,
+          source: { kind: 'provider', provider: PROVIDER_ID, model: computed.model },
+        },
+      },
+    ])
+    await writer.flush()
+  } finally {
+    await writer.close()
+  }
+  state.lastRunAt.set(sessionId, Date.now())
+  return computed
 }
 
 function sendJson(response, status, payload) {
@@ -252,7 +351,10 @@ async function handleRefresh(ctx, state, request, response) {
     }
     const session = typeof ctx.sessions.get === 'function' ? ctx.sessions.get(sessionId) : undefined
     if (session === undefined || session === null) {
-      sendJson(response, 404, { ok: false, error: 'this session is not live in the Host process' })
+      // 没打开的会话不在内存里：直接读写它的日志，效果和打开后再刷新一样。
+      // A session nobody opened is not in memory: retitle it straight from its log.
+      const cold = await refreshColdSession(ctx, state, sessionId)
+      sendJson(response, 200, { ok: true, title: cold.title, source: 'provider' })
       return
     }
     state.forced.add(sessionId)
@@ -272,7 +374,10 @@ async function handleRefresh(ctx, state, request, response) {
     }
   } catch (error) {
     if (sessionId !== '') state.forced.delete(sessionId)
-    sendJson(response, 500, { ok: false, error: String(error?.message ?? error) })
+    const message = String(error?.message ?? error)
+    // 会话日志不存在 → 404；其余（模型失败、写占用等）→ 500 并把原因带给按钮。
+    const missing = /notfound|not found|does not exist/i.test(message) || /notfound/i.test(String(error?.name ?? ''))
+    sendJson(response, missing ? 404 : 500, { ok: false, error: message })
   }
 }
 

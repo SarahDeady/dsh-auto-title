@@ -12,6 +12,7 @@
 - **自动提炼**：每轮对话之后，用会话上下文重新总结标题，始终是一行、不超过 12 个汉字宽（一个汉字计 1，其他字符计 0.5）。
 - **你说了算**：只要你在侧栏手动改过一次标题，它就**永久停手**，不再自动覆盖——这是 Harness 标题服务自带的「用户改名即锁定」语义，插件只是顺着它工作。
 - **随时重来**：会话「⋯」菜单里多了一行 **刷新标题**，点一下立刻重新提炼；正在提炼时该行显示「正在提炼标题…」并禁用，失败会红字提示并给出原因，再点一次即可重试。
+- **没打开的会话也能刷**：重启后侧栏里那些没点开的旧会话一样能刷新——插件直接读它的会话日志提炼标题，再把结果写回日志，不要求会话正在运行。
 - **省钱**：同一会话 4 秒内不重复调模型；子会话（子智能体）不调模型，直接用确定性的短标题。
 
 ## 怎么装
@@ -74,7 +75,7 @@ Harness 的 `sessionTitle` 服务**只接受一个**标题 provider。本插件�
 - **注册座位**：`ctx.sessionTitle.register({ id: 'auto-title', automatic: 'all-prompts', generate })`。
 - **只走注入的服务**：Host 半不 import 任何 Harness 包，因此跨 Harness 版本升级不易碎。
 - **手动改名即暂停**：侧栏改名走的是服务自己的 `rename()`，它追加 `source: user` 的标题事件并锁定；此后服务不再为用户消息调度自动生成——插件什么都不用做。
-- **刷新按钮**：客户端 `GET /auto-title/refresh?sessionId=…` → Host 调 `ctx.sessionTitle.refresh(session)`，绕过上面的锁定/节流强制重算；新的标题照样通过 projection 回到 UI。用 GET 是有意为之：Harness Web 的鉴权层会把未认证的 `POST` 直接回 405，`GET` 则照常进入路由表。路由会在 `webServer` 服务就绪后再挂（冷启动时它可能还没出现）。
+- **刷新按钮**：客户端 `GET /auto-title/refresh?sessionId=…` → Host 调 `ctx.sessionTitle.refresh(session)`，绕过上面的锁定/节流强制重算；新的标题照样通过 projection 回到 UI。用 GET 是有意为之：Harness Web 的鉴权层会把未认证的 `POST` 直接回 405，`GET` 则照常进入路由表。路由会在 `webServer` 服务就绪后再挂（冷启动时它可能还没出现）。 会话不在内存里（没打开过）时，改走日志路径：`sessionPersistence.open(id, 'read')` 读日志 → 用最后的用户消息与最后一条 `request/header` 的路由提炼 → `open(id, 'write')` 追加 `session/title` 事件 → `flush()`。侧栏列表标题是宿主侧缓存快照，冷会话刷完若列表没变，`Ctrl+R` 刷新页面即可。
 
 ## 调参
 
@@ -102,7 +103,7 @@ Host 半顶部导出了 `DEFAULTS`：
 ## 开发
 
 ```bash
-npm test    # 15 个用例：provider 注册、模型调用参数、长度与清洗、节流、子会话、刷新路由 400/404/200、清理
+npm test    # 16 个用例：provider 注册、模型调用参数、长度与清洗、节流、子会话、刷新路由 400/404/200/冷会话写回、清理
 npm run check  # 语法检查
 ```
 
